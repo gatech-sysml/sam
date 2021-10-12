@@ -130,7 +130,7 @@ if __name__ == "__main__":
         )
 
     dataset_train = load_dataset("train", args)
-    dataset_test = load_dataset("train", args)
+    dataset_test = load_dataset("test", args)
 
     train_set = torch.utils.data.DataLoader(
         dataset_train,
