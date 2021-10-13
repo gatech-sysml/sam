@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader, Dataset
 from tqdm.auto import tqdm
 
 from evaluations import set_crop_size
-from model.wide_res_net import WideResNet
+from model.wide_res_net import WideResNet_Embeds
 from utility.cifar_utils import (
     cifar100_stats,
     coarse_classes,
@@ -253,7 +253,7 @@ def main(_args):
 
             # TODO: [OPTIONAL] Set the dataloader's batch size based on the crop size to increase evaluation speed
 
-            model = WideResNet(
+            model = WideResNet_Embeds(
                 kernel_size=kernel_size,
                 width_factor=width_factor,
                 depth=depth,
