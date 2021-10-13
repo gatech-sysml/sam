@@ -1,7 +1,6 @@
 import argparse
 import csv
 import os
-import pickle
 from pathlib import Path
 
 import pandas as pd
@@ -55,10 +54,6 @@ def get_granularity(name: str) -> str:
         return "fine"
     else:
         raise ValueError("granularity not found")
-
-
-def get_superclass(name: str) -> int:
-    pass
 
 
 def get_parameter(name: str, param: str) -> int:
@@ -146,8 +141,6 @@ def evaluate(dataloader, model, device, dataset_type: str):
     :return:
     """
     model_results = []
-    # model_embeddings = {}
-    # total_loss = 0.0
     total_correct = 0.0
     count = 0.0
     with torch.no_grad():
@@ -157,7 +150,6 @@ def evaluate(dataloader, model, device, dataset_type: str):
             inputs, targets = inputs.to(device), targets.to(device)
             count += len(inputs)
             outputs, embeds = model(inputs)
-            # total_loss += smooth_crossentropy(outputs, targets)
             predictions = torch.argmax(outputs, 1)
             correct = predictions == targets
             total_correct += correct.sum().item()
@@ -170,13 +162,8 @@ def evaluate(dataloader, model, device, dataset_type: str):
             for idx, data in predict_zip:
                 result_ = [idx.tolist()] + [d.tolist() for d in data]
                 model_results.append(Result(*result_))
-
-            # # Data munging for embeddings
-            # embeds_zip = zip(idxs, embeds.cpu())
-            # for idx, embed in embeds_zip:
-            #     model_embeddings[idx] = embed
     accuracy = total_correct / count
-    return model_results, accuracy  # , model_embeddings
+    return model_results, accuracy
 
 
 def split_outputs_column(df: pd.DataFrame, n_outputs: int):
@@ -334,27 +321,9 @@ def main(_args):
             index=False,
         )
 
-        # test_embeds_pkl = open(
-        #     str(evaluations_path / "embeddings" / f"test_embeds__{model_filename}.pkl"),
-        #     "wb",
-        # )
-        # pickle.dump(test_embeddings, test_embeds_pkl)
-        # test_embeds_pkl.close()
-
         validation_results, validation_accuracy = evaluate(  # , validation_embeddings
             validation_dataloader, model, device, "validation"
         )
-        # validation_embeds_pkl = open(
-        #     str(
-        #         evaluations_path
-        #         / "embeddings"
-        #         / f"validation_embeds__{model_filename}.pkl"
-        #     ),
-        #     "wb",
-        # )
-        # pickle.dump(validation_embeddings, validation_embeds_pkl)
-        # validation_embeds_pkl.close()
-
         validation_df = pd.DataFrame(validation_results)
         validation_df = split_outputs_column(validation_df, n_labels)
         validation_df.to_csv(
