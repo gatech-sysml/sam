@@ -212,7 +212,7 @@ def main(_args):
 
     # Find the model path based on the input model name
     model_paths = find_model_files()
-    model_paths = model_paths[: _args.limit]
+    model_paths = model_paths
     for mp in model_paths:
         if _args.model_pattern in mp:
             model_path = mp
