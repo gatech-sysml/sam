@@ -90,7 +90,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--coarse_classes", dest="use_fine_classes", action="store_false",
     )
-    parser.set_defaults(use_fine_classes=True)
+    parser.set_defaults(use_fine_classes=False)
     parser.add_argument(
         "--superclass", default="all", type=str, help="Superclass we want to use",
     )
@@ -99,15 +99,13 @@ if __name__ == "__main__":
 
     if args.use_fine_classes:
         args.granularity = "fine"
-        if not args.superclass:
+        if args.superclass == "all":
             ValueError(
                 "Must provide superclass when building datasets with fine labels"
             )
         superclass = str(args.superclass)
     else:
         args.granularity = "coarse"
-        if not args.superclass:
-            superclass = "all"
 
     random.seed(42)
     train_set, test_set = make_cifar100(args)
