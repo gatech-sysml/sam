@@ -9,7 +9,7 @@ import torchvision.transforms as transforms
 from torch.utils.data import DataLoader, Dataset
 from tqdm.auto import tqdm
 
-from evaluate import set_crop_size
+from evaluations import set_crop_size
 from model.wide_res_net import WideResNet
 from utility.cifar_utils import (
     cifar100_stats,
@@ -135,38 +135,18 @@ def get_model_embedding(dataloader, model, device, dataset_type: str):
     :param dataset_type: Text string with the data split (train, test, validate, etc)
     :return:
     """
-    model_results = []
     model_embeddings = {}
-    # total_loss = 0.0
-    total_correct = 0.0
-    count = 0.0
     with torch.no_grad():
         for inputs, targets, idxs in tqdm(
             dataloader, desc=f"Evaluating {dataset_type} data", leave=False
         ):
             inputs, targets = inputs.to(device), targets.to(device)
-            count += len(inputs)
-            outputs, embeds = model(inputs)
-            # TODO: Put `embeddings` in dict with each embedding keyed to the image index and pickle the dictionary
-            # total_loss += smooth_crossentropy(outputs, targets)
-            predictions = torch.argmax(outputs, 1)
-            correct = predictions == targets
-            total_correct += correct.sum().item()
-
-            # # Data munging for predictions
-            # predict_zip = zip(
-            #     idxs,
-            #     zip(*(predictions.cpu(), targets.cpu(), correct.cpu(), outputs.cpu())),
-            # )
-            # for idx, data in predict_zip:
-            #     result_ = [idx.tolist()] + [d.tolist() for d in data]
-            #     model_results.append(Result(*result_))
+            _, embeds = model(inputs)  # ignore model output only need the embedding
 
             # Data munging for embeddings
             embeds_zip = zip(idxs, embeds.cpu())
             for idx, embed in embeds_zip:
                 model_embeddings[idx.tolist()] = embed.tolist()
-    accuracy = total_correct / count
     return model_embeddings
 
 
@@ -230,23 +210,15 @@ def main(_args):
     validation_fine_dataloader = get_validation_dataloader(coarse=False)
     validation_coarse_dataloader = get_validation_dataloader(coarse=True)
 
-    # TODO: Instead of passing in an entire model path, pass in the name of the model and find it in the directory
+    # Find the model path based on the input model name
     model_paths = find_model_files()
     model_paths = model_paths[: _args.limit]
-
     for mp in model_paths:
         if args.model_name in mp:
             model_path = mp
     print(model_path)
     model_filename = parse_model_path(str(model_path))
     print(model_filename)
-
-    # profiles_path = evaluations_path / "model_profiles.csv"
-    # with open(profiles_path, "w", encoding="UTF8") as f:
-    #     writer = csv.writer(f)
-    #     writer.writerow(profile_fields)
-
-    # model_path = _args.model_path
 
     (
         granularity,
@@ -303,28 +275,11 @@ def main(_args):
     test_embeddings = get_model_embedding(  # test_results, test_accuracy,
         test_dataloader, model, device, "test"
     )
-    # test_df = pd.DataFrame(test_results)
-    # test_df = split_outputs_column(test_df, n_labels)
-
-    # test_df.to_csv(
-    #     path_or_buf=str(predictions_path / f"test_eval__{model_filename}.csv"),
-    #     index=False,
-    # )
-
     test_embeds_pkl = open(
         str(embeddings_path / f"test_embeds__{model_filename}.pkl"), "wb",
     )
     pickle.dump(test_embeddings, test_embeds_pkl)
     test_embeds_pkl.close()
-
-    # macs, params = get_model_complexity_info(
-    #     model,
-    #     (3, crop_size, crop_size),
-    #     as_strings=True,
-    #     print_per_layer_stat=False,
-    #     verbose=False,
-    # )
-    # flops = f"{2*float(macs.split(' ')[0])} GFLOPs"
 
     validation_embeddings = get_model_embedding(  # validation_results, validation_accuracy,
         validation_dataloader, model, device, "validation"
@@ -334,19 +289,6 @@ def main(_args):
     )
     pickle.dump(validation_embeddings, validation_embeds_pkl)
     validation_embeds_pkl.close()
-
-    # validation_df = pd.DataFrame(validation_results)
-    # validation_df = split_outputs_column(validation_df, n_labels)
-    # validation_df.to_csv(
-    #     path_or_buf=str(
-    #         predictions_path / f"validation_eval__{model_filename}.csv"
-    #     ),
-    #     index=False,
-    # )
-
-    # profile_ = Profile(*(model_info + [validation_accuracy, macs, flops, params]))
-    # profile_df = pd.DataFrame([profile_], columns=profile_fields)
-    # profile_df.to_csv(profiles_path, mode="a", header=False, index=False)
 
 
 if __name__ == "__main__":
