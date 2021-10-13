@@ -149,7 +149,7 @@ def evaluate(dataloader, model, device, dataset_type: str):
         ):
             inputs, targets = inputs.to(device), targets.to(device)
             count += len(inputs)
-            outputs, embeds = model(inputs)
+            outputs = model(inputs)
             predictions = torch.argmax(outputs, 1)
             correct = predictions == targets
             total_correct += correct.sum().item()
@@ -317,7 +317,7 @@ def main(_args):
         model.cuda(device)
         model.eval()
 
-        test_results, test_accuracy = evaluate(  # , test_embeddings
+        test_results, test_accuracy = evaluate(
             test_dataloader, model, device, "test"
         )
         test_df = pd.DataFrame(test_results)
@@ -331,7 +331,7 @@ def main(_args):
             index=False,
         )
 
-        validation_results, validation_accuracy = evaluate(  # , validation_embeddings
+        validation_results, validation_accuracy = evaluate(
             validation_dataloader, model, device, "validation"
         )
         validation_df = pd.DataFrame(validation_results)
