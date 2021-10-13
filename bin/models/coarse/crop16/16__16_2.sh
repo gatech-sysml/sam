@@ -1,12 +1,13 @@
 #!/bin/sh
 
-gpu=1
-cr=16
-kr=$((cr / 4))
-kr=$((cr / 8))
-pd=2
+gpu=0
 dp=16
 wd=2
+
+cr=16
+kr=$((cr / 4))
+pd=$((cr / 8))
+
 
 log_path="logs/model/coarse/all/crop${cr}_kernel${kr}_padding${pd}/depth${dp}_width${wd}/"
 mkdir -p $log_path

@@ -1,8 +1,8 @@
 #!/bin/sh
 
-gpu=2
-dp=16
-wd=6
+gpu=5
+dp=22
+wd=10
 
 cr=16
 kr=$((cr / 4))

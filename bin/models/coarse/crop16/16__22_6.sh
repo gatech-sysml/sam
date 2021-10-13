@@ -1,7 +1,7 @@
 #!/bin/sh
 
-gpu=2
-dp=16
+gpu=4
+dp=22
 wd=6
 
 cr=16
