@@ -215,7 +215,7 @@ class WideResNet_Embeds(nn.Module):
         in_channels: int,
         labels: int,
     ):
-        super(WideResNet, self).__init__()
+        super(WideResNet_Embeds, self).__init__()
 
         self.filters = [
             16,
