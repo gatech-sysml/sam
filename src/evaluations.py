@@ -151,10 +151,10 @@ def evaluate(dataloader, model, device, dataset_type: str, use_original_resnet=T
         ):
             inputs, targets = inputs.to(device), targets.to(device)
             count += len(inputs)
-            if original_net:
+            if use_original_resnet:
                 outputs = model(inputs)
             else:
-                outputs, _ = model(inputs) #embeddings are not needed here
+                outputs, _ = model(inputs)  # embeddings are not needed here
             predictions = torch.argmax(outputs, 1)
             correct = predictions == targets
             total_correct += correct.sum().item()
@@ -323,7 +323,11 @@ def main(_args):
         model.eval()
 
         test_results, test_accuracy = evaluate(
-            test_dataloader, model, device, "test", use_original_resnet=_args.use_original_resnet
+            test_dataloader,
+            model,
+            device,
+            "test",
+            use_original_resnet=_args.use_original_resnet,
         )
         test_df = pd.DataFrame(test_results)
         test_df = split_outputs_column(test_df, n_labels)
@@ -337,7 +341,11 @@ def main(_args):
         )
 
         validation_results, validation_accuracy = evaluate(
-            validation_dataloader, model, device, "validation", use_original_resnet=_args.use_original_resnet
+            validation_dataloader,
+            model,
+            device,
+            "validation",
+            use_original_resnet=_args.use_original_resnet,
         )
         validation_df = pd.DataFrame(validation_results)
         validation_df = split_outputs_column(validation_df, n_labels)
@@ -371,7 +379,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--limit", default=None, type=int, help="Limit amount for models to evaluate",
     )
-    parser.add_argument("--original_net", dest="use_original_resnet", action="store_true")
+    parser.add_argument(
+        "--original_net", dest="use_original_resnet", action="store_true"
+    )
     parser.add_argument(
         "--embed_net", dest="use_original_resnet", action="store_false",
     )
