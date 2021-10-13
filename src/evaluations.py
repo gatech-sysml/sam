@@ -366,9 +366,6 @@ if __name__ == "__main__":
     parser.add_argument(
         "--limit", default=None, type=int, help="Limit amount for models to evaluate",
     )
-    parser.add_argument(
-        "--original_net", default=True, type=bool, help="Limit amount for models to evaluate",
-    )
     parser.add_argument("--original_net", dest="use_original_WRN", action="store_true")
     parser.add_argument(
         "--embed_net", dest="use_original_WRN", action="store_false",
