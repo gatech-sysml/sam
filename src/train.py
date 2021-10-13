@@ -77,7 +77,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--coarse_classes", dest="use_fine_classes", action="store_false",
     )
-    parser.set_defaults(use_fine_classes=True)
+    parser.set_defaults(use_fine_classes=False)
     parser.add_argument(
         "--superclass", default="all", type=str, help="Superclass we want to use",
     )
@@ -141,8 +141,6 @@ if __name__ == "__main__":
         superclass = str(args.superclass)
     else:
         args.granularity = "coarse"
-        if not args.superclass:
-            superclass = "all"
 
     # Determine the kernel size and padding amount from the crop size argument
     kernel_size, padding_amount = determine_params(args.crop_size)
