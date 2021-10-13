@@ -176,7 +176,7 @@ if __name__ == "__main__":
         num_workers=args.threads,
     )
     # Set the crop size and padding amount
-    set_crop_size(train_set, kernel_size)
+    set_crop_size(train_set, args.crop_size)
     set_padding_amount(train_set, padding_amount)
 
     test_set = torch.utils.data.DataLoader(
@@ -186,7 +186,7 @@ if __name__ == "__main__":
         num_workers=args.threads,
     )
     # Set the crop size (no padding on training)
-    set_crop_size(test_set, kernel_size)
+    set_crop_size(test_set, args.crop_size)
 
     fp = (
         get_project_root()
