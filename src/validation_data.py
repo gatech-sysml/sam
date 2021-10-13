@@ -3,10 +3,13 @@ from itertools import compress
 
 import torch
 import torchvision.transforms as transforms
-from cifar_utils import cifar100_stats
-from misc_utils import get_project_root
+from utility.cifar_utils import cifar100_stats
 from torch.utils.data import Dataset
 from torchvision.datasets import CIFAR100
+from pathlib import Path
+
+def get_project_root() -> Path:
+    return Path(__file__).parent.parent
 
 dataset_path = get_project_root() / "datasets"
 dataset_path.mkdir(parents=True, exist_ok=True)
