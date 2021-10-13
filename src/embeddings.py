@@ -214,7 +214,7 @@ def main(_args):
     model_paths = find_model_files()
     model_paths = model_paths[: _args.limit]
     for mp in model_paths:
-        if args.model_name in mp:
+        if _args.model_pattern in mp:
             model_path = mp
     print(model_path)
     model_filename = parse_model_path(str(model_path))
@@ -272,6 +272,7 @@ def main(_args):
     model.cuda(device)
     model.eval()
 
+    print("TEST DATA: Getting model embeddings")
     test_embeddings = get_model_embedding(  # test_results, test_accuracy,
         test_dataloader, model, device, "test"
     )
@@ -280,7 +281,9 @@ def main(_args):
     )
     pickle.dump(test_embeddings, test_embeds_pkl)
     test_embeds_pkl.close()
+    print("TEST DATA: Embeddings saved")
 
+    print("VALIDATION DATA: Getting model embeddings")
     validation_embeddings = get_model_embedding(  # validation_results, validation_accuracy,
         validation_dataloader, model, device, "validation"
     )
@@ -289,6 +292,7 @@ def main(_args):
     )
     pickle.dump(validation_embeddings, validation_embeds_pkl)
     validation_embeds_pkl.close()
+    print("VALIDATION DATA: Embeddings saved")
 
 
 if __name__ == "__main__":
@@ -297,7 +301,7 @@ if __name__ == "__main__":
         "--gpu", default=3, type=int, help="Index of GPU to use",
     )
     parser.add_argument(
-        "--model_name",
+        "--model_pattern",
         default=None,
         type=str,
         help="Name of the model we want to evaluate",
