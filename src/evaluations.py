@@ -131,8 +131,10 @@ def find_model_files(model_path=(project_path / "models")):
     return model_files
 
 
-def evaluate(dataloader, model, device, dataset_type: str):
+def evaluate(dataloader, model, device, dataset_type: str, use_original_resnet=True):
     """
+
+    flag original_net is to handle WRNs w/o the embedding
 
     :param dataloader: Dataloader containing CIFAR100Indexed
     :param model: WideResNet model object
@@ -149,7 +151,10 @@ def evaluate(dataloader, model, device, dataset_type: str):
         ):
             inputs, targets = inputs.to(device), targets.to(device)
             count += len(inputs)
-            outputs = model(inputs)
+            if original_net:
+                outputs = model(inputs)
+            else:
+                outputs, _ = model(inputs) #embeddings are not needed here
             predictions = torch.argmax(outputs, 1)
             correct = predictions == targets
             total_correct += correct.sum().item()
@@ -291,7 +296,7 @@ def main(_args):
 
         # TODO: [OPTIONAL] Set the dataloader's batch size based on the crop size to increase evaluation speed
 
-        if _args.use_original_WRN:
+        if _args.use_original_resnet:
             model = WideResNet(
                 kernel_size=kernel_size,
                 width_factor=width_factor,
@@ -318,7 +323,7 @@ def main(_args):
         model.eval()
 
         test_results, test_accuracy = evaluate(
-            test_dataloader, model, device, "test"
+            test_dataloader, model, device, "test", use_original_resnet=_args.use_original_resnet
         )
         test_df = pd.DataFrame(test_results)
         test_df = split_outputs_column(test_df, n_labels)
@@ -332,7 +337,7 @@ def main(_args):
         )
 
         validation_results, validation_accuracy = evaluate(
-            validation_dataloader, model, device, "validation"
+            validation_dataloader, model, device, "validation", use_original_resnet=_args.use_original_resnet
         )
         validation_df = pd.DataFrame(validation_results)
         validation_df = split_outputs_column(validation_df, n_labels)
@@ -366,11 +371,11 @@ if __name__ == "__main__":
     parser.add_argument(
         "--limit", default=None, type=int, help="Limit amount for models to evaluate",
     )
-    parser.add_argument("--original_net", dest="use_original_WRN", action="store_true")
+    parser.add_argument("--original_net", dest="use_original_resnet", action="store_true")
     parser.add_argument(
-        "--embed_net", dest="use_original_WRN", action="store_false",
+        "--embed_net", dest="use_original_resnet", action="store_false",
     )
-    parser.set_defaults(use_original_WRN=True)
+    parser.set_defaults(use_original_resnet=True)
 
     args = parser.parse_args()
     print("Getting model results")
