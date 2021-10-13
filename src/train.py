@@ -22,10 +22,6 @@ def get_project_root() -> Path:
     return Path(__file__).parent.parent
 
 
-# import sys
-#
-# sys.path.append(get_project_root)
-
 # TODO: Collapse crop/padding functions down to a single one
 def set_crop_size(dataloader, crop_size: int):
     """
@@ -53,21 +49,21 @@ def set_padding_amount(dataloader, padding_amount: int):
 def determine_params(crop_size: int) -> (int, int):
     """
     # !!! NOTE KERNEL AND PADDING SIZE DEPENDS ON CROP SIZE !!!
-    # crop 32 = kernel 8
-    # crop 24 = kernel 6
-    # crop 16 = kernel 4
-    # crop 8 = kernel 2
+    # crop 32 -> kernel 8 -> padding 4
+    # crop 24 -> kernel 6 -> padding 3
+    # crop 16 -> kernel 4 -> padding 2
+    # crop 8 -> kernel 2 -> padding 1
     :param crop_size:
     :return: kernel_size, padding_amount
     """
     if crop_size == 32:
         return 8, 4
     elif crop_size == 24:
-        return 6, 4 # could be 3 instead
+        return 6, 3
     elif crop_size == 16:
-        return 4, 4 # could be 2 instead
+        return 4, 2
     elif crop_size == 8:
-        return 2, 4 # could be 1 instead
+        return 2, 1
     else:
         raise ValueError("invalid crop size")
 
@@ -200,7 +196,7 @@ if __name__ == "__main__":
         / f"crop{str(args.crop_size)}_kernel{str(kernel_size)}_padding{str(padding_amount)}"
         / f"width{str(args.width_factor)}"
         / f"depth{str(args.depth)}"
-        / f"model_{args.granularity}_{args.superclass}_crop{args.crop_size}_kernel{str(kernel_size)}_width{args.width_factor}_depth{args.depth}.pt"
+        / f"model_{args.granularity}_{args.superclass}_crop{args.crop_size}_width{args.width_factor}_depth{args.depth}.pt"
     )
 
     fp.parent.mkdir(parents=True, exist_ok=True)
