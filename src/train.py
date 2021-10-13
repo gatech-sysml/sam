@@ -194,8 +194,8 @@ if __name__ == "__main__":
         / args.granularity
         / args.superclass
         / f"crop{str(args.crop_size)}_kernel{str(kernel_size)}_padding{str(padding_amount)}"
-        / f"width{str(args.width_factor)}_depth{str(args.depth)}"
-        / f"model_{args.granularity}_{args.superclass}_crop{args.crop_size}_width{args.width_factor}_depth{args.depth}.pt"
+        / f"depth{str(args.depth)}_width{str(args.width_factor)}"
+        / f"model_{args.granularity}_{args.superclass}_crop{args.crop_size}_depth{args.depth}_width{args.width_factor}.pt"
     )
 
     fp.parent.mkdir(parents=True, exist_ok=True)
