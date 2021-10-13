@@ -194,8 +194,7 @@ if __name__ == "__main__":
         / args.granularity
         / args.superclass
         / f"crop{str(args.crop_size)}_kernel{str(kernel_size)}_padding{str(padding_amount)}"
-        / f"width{str(args.width_factor)}"
-        / f"depth{str(args.depth)}"
+        / f"width{str(args.width_factor)}_depth{str(args.depth)}"
         / f"model_{args.granularity}_{args.superclass}_crop{args.crop_size}_width{args.width_factor}_depth{args.depth}.pt"
     )
 
