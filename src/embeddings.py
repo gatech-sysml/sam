@@ -212,87 +212,84 @@ def main(_args):
 
     # Find the model path based on the input model name
     model_paths = find_model_files()
-    model_paths = model_paths
     for mp in model_paths:
         if _args.model_pattern in mp:
-            model_path = mp
-    print(model_path)
-    model_filename = parse_model_path(str(model_path))
-    print(model_filename)
+            model_filename = parse_model_path(str(mp))
+            print(model_filename)
 
-    (
-        granularity,
-        class_id,
-        crop_size,
-        kernel_size,
-        width_factor,
-        depth,
-    ) = get_parameters(model_filename)
+            (
+                granularity,
+                class_id,
+                crop_size,
+                kernel_size,
+                width_factor,
+                depth,
+            ) = get_parameters(model_filename)
 
-    model_info = [
-        granularity,
-        class_id,
-        crop_size,
-        kernel_size,
-        width_factor,
-        depth,
-    ]
-    print(model_info)
+            model_info = [
+                granularity,
+                class_id,
+                crop_size,
+                kernel_size,
+                width_factor,
+                depth,
+            ]
+            print(model_info)
 
-    if granularity == "coarse":
-        n_labels = 20
-        test_dataloader = test_coarse_dataloader
-        validation_dataloader = validation_coarse_dataloader
-    elif granularity == "fine":
-        n_labels = 100
-        test_dataloader = test_fine_dataloader
-        validation_dataloader = validation_fine_dataloader
-    else:
-        raise ValueError("model filename does not contain granularity")
+            if granularity == "coarse":
+                n_labels = 20
+                test_dataloader = test_coarse_dataloader
+                validation_dataloader = validation_coarse_dataloader
+            elif granularity == "fine":
+                n_labels = 100
+                test_dataloader = test_fine_dataloader
+                validation_dataloader = validation_fine_dataloader
+            else:
+                raise ValueError("model filename does not contain granularity")
 
-    # Sets the crop size on the RandomCrop transform to fit the model
-    set_crop_size(test_dataloader, crop_size)
-    set_crop_size(validation_dataloader, crop_size)
+            # Sets the crop size on the RandomCrop transform to fit the model
+            set_crop_size(test_dataloader, crop_size)
+            set_crop_size(validation_dataloader, crop_size)
 
-    # TODO: [OPTIONAL] Set the dataloader's batch size based on the crop size to increase evaluation speed
+            # TODO: [OPTIONAL] Set the dataloader's batch size based on the crop size to increase evaluation speed
 
-    model = WideResNet(
-        kernel_size=kernel_size,
-        width_factor=width_factor,
-        depth=depth,
-        dropout=0.0,
-        in_channels=3,
-        labels=n_labels,
-    )
+            model = WideResNet(
+                kernel_size=kernel_size,
+                width_factor=width_factor,
+                depth=depth,
+                dropout=0.0,
+                in_channels=3,
+                labels=n_labels,
+            )
 
-    model_state_dict = torch.load(model_path, map_location=f"cuda:{_args.gpu}")[
-        "model_state_dict"
-    ]
-    model.load_state_dict(model_state_dict)
-    model.cuda(device)
-    model.eval()
+            model_state_dict = torch.load(mp, map_location=f"cuda:{_args.gpu}")[
+                "model_state_dict"
+            ]
+            model.load_state_dict(model_state_dict)
+            model.cuda(device)
+            model.eval()
 
-    print("TEST DATA: Getting model embeddings")
-    test_embeddings = get_model_embedding(  # test_results, test_accuracy,
-        test_dataloader, model, device, "test"
-    )
-    test_embeds_pkl = open(
-        str(embeddings_path / f"test_embeds__{model_filename}.pkl"), "wb",
-    )
-    pickle.dump(test_embeddings, test_embeds_pkl)
-    test_embeds_pkl.close()
-    print("TEST DATA: Embeddings saved")
+            print("TEST DATA: Getting model embeddings")
+            test_embeddings = get_model_embedding(  # test_results, test_accuracy,
+                test_dataloader, model, device, "test"
+            )
+            test_embeds_pkl = open(
+                str(embeddings_path / f"test_embeds__{model_filename}.pkl"), "wb",
+            )
+            pickle.dump(test_embeddings, test_embeds_pkl)
+            test_embeds_pkl.close()
+            print("TEST DATA: Embeddings saved")
 
-    print("VALIDATION DATA: Getting model embeddings")
-    validation_embeddings = get_model_embedding(  # validation_results, validation_accuracy,
-        validation_dataloader, model, device, "validation"
-    )
-    validation_embeds_pkl = open(
-        str(embeddings_path / f"validation_embeds__{model_filename}.pkl"), "wb",
-    )
-    pickle.dump(validation_embeddings, validation_embeds_pkl)
-    validation_embeds_pkl.close()
-    print("VALIDATION DATA: Embeddings saved")
+            print("VALIDATION DATA: Getting model embeddings")
+            validation_embeddings = get_model_embedding(  # validation_results, validation_accuracy,
+                validation_dataloader, model, device, "validation"
+            )
+            validation_embeds_pkl = open(
+                str(embeddings_path / f"validation_embeds__{model_filename}.pkl"), "wb",
+            )
+            pickle.dump(validation_embeddings, validation_embeds_pkl)
+            validation_embeds_pkl.close()
+            print("VALIDATION DATA: Embeddings saved")
 
 
 if __name__ == "__main__":

@@ -1,15 +1,18 @@
 import random
 from itertools import compress
+from pathlib import Path
 
 import torch
 import torchvision.transforms as transforms
-from utility.cifar_utils import cifar100_stats
 from torch.utils.data import Dataset
 from torchvision.datasets import CIFAR100
-from pathlib import Path
+
+from utility.cifar_utils import cifar100_stats
+
 
 def get_project_root() -> Path:
     return Path(__file__).parent.parent
+
 
 dataset_path = get_project_root() / "datasets"
 dataset_path.mkdir(parents=True, exist_ok=True)
