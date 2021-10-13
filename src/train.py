@@ -174,8 +174,11 @@ if __name__ == "__main__":
         num_workers=args.threads,
     )
     # Set the crop size and padding amount
+    print(f"TRAIN BEFORE: {train_set.dataset.transforms.transform.transforms}")
     set_crop_size(train_set, args.crop_size)
     set_padding_amount(train_set, padding_amount)
+    print(f"TRAIN AFTER: {train_set.dataset.transforms.transform.transforms}")
+
 
     test_set = torch.utils.data.DataLoader(
         load_dataset("test", args),
@@ -184,7 +187,9 @@ if __name__ == "__main__":
         num_workers=args.threads,
     )
     # Set the crop size (no padding on training)
+    print(f"TEST BEFORE: {test_set.dataset.transforms.transform.transforms}")
     set_crop_size(test_set, args.crop_size)
+    print(f"TEST AFTER: {test_set.dataset.transforms.transform.transforms}")
 
     fp = (
         get_project_root()
