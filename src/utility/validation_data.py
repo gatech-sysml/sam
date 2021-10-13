@@ -1,4 +1,3 @@
-import argparse
 import random
 from itertools import compress
 
@@ -59,7 +58,7 @@ def make_validation_dataset():
         indices = [
             i for i, e in enumerate(mask) if e
         ]  # get the indices for all the data from superclass
-        sampled_indices += random.sample(indices, 20)
+        sampled_indices += random.sample(indices, 200)
 
     dataset_mask = [False] * 50_000
     for i in sampled_indices:
@@ -76,14 +75,7 @@ def make_validation_dataset():
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--gpu", default=6, type=int, help="Index of GPU to use",
-    )
-    args = parser.parse_args()
-
     random.seed(42)
-    device = torch.device(f"cuda:{args.gpu}" if torch.cuda.is_available() else "cpu")
     dataset = make_validation_dataset()
     output_path = (
         get_project_root() / "datasets" / "validation" / "validation_dataset.pt"
