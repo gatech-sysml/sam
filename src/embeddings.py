@@ -1,17 +1,15 @@
 import argparse
-import csv
 import os
 import pickle
 from pathlib import Path
 
-import pandas as pd
 import torch
 import torchvision
 import torchvision.transforms as transforms
-from ptflops import get_model_complexity_info
 from torch.utils.data import DataLoader, Dataset
 from tqdm.auto import tqdm
 
+from evaluate import set_crop_size
 from model.wide_res_net import WideResNet
 from utility.cifar_utils import (
     cifar100_stats,
@@ -27,10 +25,18 @@ from itertools import compress
 from utility.cifar_utils import coarse_class_to_idx
 
 project_path = Path(__file__).parent.parent
+
 dataset_path = project_path / "datasets"
 dataset_path.mkdir(parents=True, exist_ok=True)
+
 evaluations_path = project_path / "evaluations"
 evaluations_path.mkdir(parents=True, exist_ok=True)
+
+predictions_path = evaluations_path / "predictions"
+predictions_path.mkdir(exist_ok=True, parents=True)
+
+embeddings_path = evaluations_path / "embeddings"
+embeddings_path.mkdir(exist_ok=True, parents=True)
 
 Result = namedtuple("Result", ["idx", "prediction", "target", "correct", "outputs"])
 profile_fields = [
@@ -55,10 +61,6 @@ def get_granularity(name: str) -> str:
         return "fine"
     else:
         raise ValueError("granularity not found")
-
-
-def get_superclass(name: str) -> int:
-    pass
 
 
 def get_parameter(name: str, param: str) -> int:
@@ -101,18 +103,6 @@ def superclass_to_idx(filename: str):
     return filename.replace(superclass, "class" + str(superclass_idx))
 
 
-def set_crop_size(dataloader, crop_size: int):
-    """
-    takes in a dataloader containing dataset CIFAR100Indexed and sets size of the RandomCrop
-    """
-    for i, t in enumerate(dataloader.dataset.cifar100.transforms.transform.transforms):
-        if type(t) == torchvision.transforms.transforms.RandomCrop:
-            dataloader.dataset.cifar100.transforms.transform.transforms[i].size = (
-                crop_size,
-                crop_size,
-            )
-
-
 class CIFAR100Indexed(Dataset):
     def __init__(self, root, download, train, transform):
         self.cifar100 = torchvision.datasets.CIFAR100(
@@ -136,7 +126,7 @@ def find_model_files(model_path=(project_path / "models")):
     return model_files
 
 
-def evaluate(dataloader, model, device, dataset_type: str):
+def get_model_embedding(dataloader, model, device, dataset_type: str):
     """
 
     :param dataloader: Dataloader containing CIFAR100Indexed
@@ -146,7 +136,7 @@ def evaluate(dataloader, model, device, dataset_type: str):
     :return:
     """
     model_results = []
-    # model_embeddings = {}
+    model_embeddings = {}
     # total_loss = 0.0
     total_correct = 0.0
     count = 0.0
@@ -157,42 +147,27 @@ def evaluate(dataloader, model, device, dataset_type: str):
             inputs, targets = inputs.to(device), targets.to(device)
             count += len(inputs)
             outputs, embeds = model(inputs)
+            # TODO: Put `embeddings` in dict with each embedding keyed to the image index and pickle the dictionary
             # total_loss += smooth_crossentropy(outputs, targets)
             predictions = torch.argmax(outputs, 1)
             correct = predictions == targets
             total_correct += correct.sum().item()
 
-            # Data munging for predictions
-            predict_zip = zip(
-                idxs,
-                zip(*(predictions.cpu(), targets.cpu(), correct.cpu(), outputs.cpu())),
-            )
-            for idx, data in predict_zip:
-                result_ = [idx.tolist()] + [d.tolist() for d in data]
-                model_results.append(Result(*result_))
+            # # Data munging for predictions
+            # predict_zip = zip(
+            #     idxs,
+            #     zip(*(predictions.cpu(), targets.cpu(), correct.cpu(), outputs.cpu())),
+            # )
+            # for idx, data in predict_zip:
+            #     result_ = [idx.tolist()] + [d.tolist() for d in data]
+            #     model_results.append(Result(*result_))
 
-            # # Data munging for embeddings
-            # embeds_zip = zip(idxs, embeds.cpu())
-            # for idx, embed in embeds_zip:
-            #     model_embeddings[idx] = embed
+            # Data munging for embeddings
+            embeds_zip = zip(idxs, embeds.cpu())
+            for idx, embed in embeds_zip:
+                model_embeddings[idx.tolist()] = embed.tolist()
     accuracy = total_correct / count
-    return model_results, accuracy  # , model_embeddings
-
-
-def split_outputs_column(df: pd.DataFrame, n_outputs: int):
-    """
-    Split the array elements in the `outputs` column into individual columns in pandas
-    :param df: DataFrame containing an outputs column
-    :return: DataFrame with the outputs column split by element
-    """
-    # new df from the column of lists
-    outputs_df = pd.DataFrame(
-        df["outputs"].tolist(), columns=[f"output{i}" for i in range(n_outputs)],
-    )
-    # attach output columns back to df
-    df = pd.concat([df, outputs_df], axis=1)
-    df = df.drop("outputs", axis=1)  # drop the original outputs column
-    return df
+    return model_embeddings
 
 
 def get_test_dataloader(coarse=False):
@@ -255,137 +230,135 @@ def main(_args):
     validation_fine_dataloader = get_validation_dataloader(coarse=False)
     validation_coarse_dataloader = get_validation_dataloader(coarse=True)
 
+    # TODO: Instead of passing in an entire model path, pass in the name of the model and find it in the directory
     model_paths = find_model_files()
-
     model_paths = model_paths[: _args.limit]
 
-    profiles_path = evaluations_path / "model_profiles.csv"
-    with open(profiles_path, "w", encoding="UTF8") as f:
-        writer = csv.writer(f)
-        writer.writerow(profile_fields)
+    for mp in model_paths:
+        if args.model_name in mp:
+            model_path = mp
+    print(model_path)
+    model_filename = parse_model_path(str(model_path))
+    print(model_filename)
 
-    # TODO: [OPTIONAL] Can I speed this up using multiprocessing?
-    for model_path in tqdm(model_paths, desc="Model evaluations", leave=False):
-        model_filename = parse_model_path(model_path)
-        print(model_filename)
+    # profiles_path = evaluations_path / "model_profiles.csv"
+    # with open(profiles_path, "w", encoding="UTF8") as f:
+    #     writer = csv.writer(f)
+    #     writer.writerow(profile_fields)
 
-        (
-            granularity,
-            class_id,
-            crop_size,
-            kernel_size,
-            width_factor,
-            depth,
-        ) = get_parameters(model_filename)
+    # model_path = _args.model_path
 
-        model_info = [
-            granularity,
-            class_id,
-            crop_size,
-            kernel_size,
-            width_factor,
-            depth,
-        ]
-        print(model_info)
-        if granularity == "coarse":
-            n_labels = 20
-            test_dataloader = test_coarse_dataloader
-            validation_dataloader = validation_coarse_dataloader
-        elif granularity == "fine":
-            n_labels = 100
-            test_dataloader = test_fine_dataloader
-            validation_dataloader = validation_fine_dataloader
-        else:
-            raise ValueError("model filename does not contain granularity")
+    (
+        granularity,
+        class_id,
+        crop_size,
+        kernel_size,
+        width_factor,
+        depth,
+    ) = get_parameters(model_filename)
 
-        # Sets the crop size on the RandomCrop transform to fit the model
-        set_crop_size(test_dataloader, crop_size)
-        set_crop_size(validation_dataloader, crop_size)
+    model_info = [
+        granularity,
+        class_id,
+        crop_size,
+        kernel_size,
+        width_factor,
+        depth,
+    ]
+    print(model_info)
 
-        # TODO: [OPTIONAL] Set the dataloader's batch size based on the crop size to increase evaluation speed
+    if granularity == "coarse":
+        n_labels = 20
+        test_dataloader = test_coarse_dataloader
+        validation_dataloader = validation_coarse_dataloader
+    elif granularity == "fine":
+        n_labels = 100
+        test_dataloader = test_fine_dataloader
+        validation_dataloader = validation_fine_dataloader
+    else:
+        raise ValueError("model filename does not contain granularity")
 
-        model = WideResNet(
-            kernel_size=kernel_size,
-            width_factor=width_factor,
-            depth=depth,
-            dropout=0.0,
-            in_channels=3,
-            labels=n_labels,
-        )
+    # Sets the crop size on the RandomCrop transform to fit the model
+    set_crop_size(test_dataloader, crop_size)
+    set_crop_size(validation_dataloader, crop_size)
 
-        model_state_dict = torch.load(model_path, map_location=f"cuda:{_args.gpu}")[
-            "model_state_dict"
-        ]
-        model.load_state_dict(model_state_dict)
-        model.cuda(device)
-        model.eval()
+    # TODO: [OPTIONAL] Set the dataloader's batch size based on the crop size to increase evaluation speed
 
-        test_results, test_accuracy = evaluate(  # , test_embeddings
-            test_dataloader, model, device, "test"
-        )
-        test_df = pd.DataFrame(test_results)
-        test_df = split_outputs_column(test_df, n_labels)
-        test_df.to_csv(
-            path_or_buf=str(
-                evaluations_path
-                / "predictions"
-                / f"test_predicts__{model_filename}.csv"
-            ),
-            index=False,
-        )
+    model = WideResNet(
+        kernel_size=kernel_size,
+        width_factor=width_factor,
+        depth=depth,
+        dropout=0.0,
+        in_channels=3,
+        labels=n_labels,
+    )
 
-        # test_embeds_pkl = open(
-        #     str(evaluations_path / "embeddings" / f"test_embeds__{model_filename}.pkl"),
-        #     "wb",
-        # )
-        # pickle.dump(test_embeddings, test_embeds_pkl)
-        # test_embeds_pkl.close()
+    model_state_dict = torch.load(model_path, map_location=f"cuda:{_args.gpu}")[
+        "model_state_dict"
+    ]
+    model.load_state_dict(model_state_dict)
+    model.cuda(device)
+    model.eval()
 
-        validation_results, validation_accuracy = evaluate(  # , validation_embeddings
-            validation_dataloader, model, device, "validation"
-        )
-        # validation_embeds_pkl = open(
-        #     str(
-        #         evaluations_path
-        #         / "embeddings"
-        #         / f"validation_embeds__{model_filename}.pkl"
-        #     ),
-        #     "wb",
-        # )
-        # pickle.dump(validation_embeddings, validation_embeds_pkl)
-        # validation_embeds_pkl.close()
+    test_embeddings = get_model_embedding(  # test_results, test_accuracy,
+        test_dataloader, model, device, "test"
+    )
+    # test_df = pd.DataFrame(test_results)
+    # test_df = split_outputs_column(test_df, n_labels)
 
-        validation_df = pd.DataFrame(validation_results)
-        validation_df = split_outputs_column(validation_df, n_labels)
-        validation_df.to_csv(
-            path_or_buf=str(
-                evaluations_path
-                / "predictions"
-                / f"validation_predicts__{model_filename}.csv"
-            ),
-            index=False,
-        )
+    # test_df.to_csv(
+    #     path_or_buf=str(predictions_path / f"test_eval__{model_filename}.csv"),
+    #     index=False,
+    # )
 
-        macs, params = get_model_complexity_info(
-            model,
-            (3, crop_size, crop_size),
-            as_strings=True,
-            print_per_layer_stat=False,
-            verbose=False,
-        )
-        flops = f"{2*float(macs.split(' ')[0])} GFLOPs"
-        profile_ = Profile(*(model_info + [validation_accuracy, macs, flops, params]))
-        profile_df = pd.DataFrame([profile_], columns=profile_fields)
-        profile_df.to_csv(profiles_path, mode="a", header=False, index=False)
+    test_embeds_pkl = open(
+        str(embeddings_path / f"test_embeds__{model_filename}.pkl"), "wb",
+    )
+    pickle.dump(test_embeddings, test_embeds_pkl)
+    test_embeds_pkl.close()
+
+    # macs, params = get_model_complexity_info(
+    #     model,
+    #     (3, crop_size, crop_size),
+    #     as_strings=True,
+    #     print_per_layer_stat=False,
+    #     verbose=False,
+    # )
+    # flops = f"{2*float(macs.split(' ')[0])} GFLOPs"
+
+    validation_embeddings = get_model_embedding(  # validation_results, validation_accuracy,
+        validation_dataloader, model, device, "validation"
+    )
+    validation_embeds_pkl = open(
+        str(embeddings_path / f"validation_embeds__{model_filename}.pkl"), "wb",
+    )
+    pickle.dump(validation_embeddings, validation_embeds_pkl)
+    validation_embeds_pkl.close()
+
+    # validation_df = pd.DataFrame(validation_results)
+    # validation_df = split_outputs_column(validation_df, n_labels)
+    # validation_df.to_csv(
+    #     path_or_buf=str(
+    #         predictions_path / f"validation_eval__{model_filename}.csv"
+    #     ),
+    #     index=False,
+    # )
+
+    # profile_ = Profile(*(model_info + [validation_accuracy, macs, flops, params]))
+    # profile_df = pd.DataFrame([profile_], columns=profile_fields)
+    # profile_df.to_csv(profiles_path, mode="a", header=False, index=False)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--gpu", default=6, type=int, help="Index of GPU to use",
+        "--gpu", default=3, type=int, help="Index of GPU to use",
     )
     parser.add_argument(
-        "--limit", default=None, type=int, help="Limit amount for models to evaluate",
+        "--model_name",
+        default=None,
+        type=str,
+        help="Name of the model we want to evaluate",
     )
     args = parser.parse_args()
     print("Getting model results")
