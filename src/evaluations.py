@@ -11,7 +11,7 @@ from ptflops import get_model_complexity_info
 from torch.utils.data import DataLoader, Dataset
 from tqdm.auto import tqdm
 
-from model.wide_res_net import WideResNet
+from model.wide_res_net import WideResNet, WideResNet_Embeds
 from utility.cifar_utils import (
     cifar100_stats,
     coarse_classes,
@@ -131,8 +131,10 @@ def find_model_files(model_path=(project_path / "models")):
     return model_files
 
 
-def evaluate(dataloader, model, device, dataset_type: str):
+def evaluate(dataloader, model, device, dataset_type: str, use_original_resnet=True):
     """
+
+    flag original_net is to handle WRNs w/o the embedding
 
     :param dataloader: Dataloader containing CIFAR100Indexed
     :param model: WideResNet model object
@@ -149,7 +151,10 @@ def evaluate(dataloader, model, device, dataset_type: str):
         ):
             inputs, targets = inputs.to(device), targets.to(device)
             count += len(inputs)
-            outputs, embeds = model(inputs)
+            if use_original_resnet:
+                outputs = model(inputs)
+            else:
+                outputs, _ = model(inputs)  # embeddings are not needed here
             predictions = torch.argmax(outputs, 1)
             correct = predictions == targets
             total_correct += correct.sum().item()
@@ -291,14 +296,24 @@ def main(_args):
 
         # TODO: [OPTIONAL] Set the dataloader's batch size based on the crop size to increase evaluation speed
 
-        model = WideResNet(
-            kernel_size=kernel_size,
-            width_factor=width_factor,
-            depth=depth,
-            dropout=0.0,
-            in_channels=3,
-            labels=n_labels,
-        )
+        if _args.use_original_resnet:
+            model = WideResNet(
+                kernel_size=kernel_size,
+                width_factor=width_factor,
+                depth=depth,
+                dropout=0.0,
+                in_channels=3,
+                labels=n_labels,
+            )
+        else:
+            model = WideResNet_Embeds(
+                kernel_size=kernel_size,
+                width_factor=width_factor,
+                depth=depth,
+                dropout=0.0,
+                in_channels=3,
+                labels=n_labels,
+            )
 
         model_state_dict = torch.load(model_path, map_location=f"cuda:{_args.gpu}")[
             "model_state_dict"
@@ -307,8 +322,12 @@ def main(_args):
         model.cuda(device)
         model.eval()
 
-        test_results, test_accuracy = evaluate(  # , test_embeddings
-            test_dataloader, model, device, "test"
+        test_results, test_accuracy = evaluate(
+            test_dataloader,
+            model,
+            device,
+            "test",
+            use_original_resnet=_args.use_original_resnet,
         )
         test_df = pd.DataFrame(test_results)
         test_df = split_outputs_column(test_df, n_labels)
@@ -321,8 +340,12 @@ def main(_args):
             index=False,
         )
 
-        validation_results, validation_accuracy = evaluate(  # , validation_embeddings
-            validation_dataloader, model, device, "validation"
+        validation_results, validation_accuracy = evaluate(
+            validation_dataloader,
+            model,
+            device,
+            "validation",
+            use_original_resnet=_args.use_original_resnet,
         )
         validation_df = pd.DataFrame(validation_results)
         validation_df = split_outputs_column(validation_df, n_labels)
@@ -356,6 +379,14 @@ if __name__ == "__main__":
     parser.add_argument(
         "--limit", default=None, type=int, help="Limit amount for models to evaluate",
     )
+    parser.add_argument(
+        "--original_net", dest="use_original_resnet", action="store_true"
+    )
+    parser.add_argument(
+        "--embed_net", dest="use_original_resnet", action="store_false",
+    )
+    parser.set_defaults(use_original_resnet=True)
+
     args = parser.parse_args()
     print("Getting model results")
     main(args)
