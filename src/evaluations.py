@@ -301,7 +301,7 @@ def main(_args):
                 labels=n_labels,
             )
         else:
-            WideResNet_Embeds(
+            model = WideResNet_Embeds(
                 kernel_size=kernel_size,
                 width_factor=width_factor,
                 depth=depth,
