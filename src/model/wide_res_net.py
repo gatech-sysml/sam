@@ -176,6 +176,103 @@ class WideResNet(nn.Module):
                     ("5_activation", nn.ReLU(inplace=True)),
                     ("6_pooling", nn.AvgPool2d(kernel_size=kernel_size)),
                     ("7_flattening", nn.Flatten()),
+                    (
+                        "8_classification",
+                        nn.Linear(in_features=self.filters[3], out_features=labels),
+                    ),
+                ]
+            )
+        )
+
+        self._initialize()
+
+    def _initialize(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(
+                    m.weight.data, mode="fan_in", nonlinearity="relu"
+                )
+                if m.bias is not None:
+                    m.bias.data.zero_()
+            elif isinstance(m, nn.BatchNorm2d):
+                m.weight.data.fill_(1)
+                m.bias.data.zero_()
+            elif isinstance(m, nn.Linear):
+                m.weight.data.zero_()
+                m.bias.data.zero_()
+
+    def forward(self, x):
+        return self.f(x)
+
+
+class WideResNet_Embeds(nn.Module):
+    def __init__(
+        self,
+        depth: int,
+        width_factor: int,
+        dropout: float,
+        kernel_size: int,
+        in_channels: int,
+        labels: int,
+    ):
+        super(WideResNet, self).__init__()
+
+        self.filters = [
+            16,
+            1 * 16 * width_factor,
+            2 * 16 * width_factor,
+            4 * 16 * width_factor,
+        ]
+        self.block_depth = (depth - 4) // (3 * 2)
+
+        self.f = nn.Sequential(
+            OrderedDict(
+                [
+                    (
+                        "0_convolution",
+                        nn.Conv2d(
+                            in_channels,
+                            self.filters[0],
+                            (3, 3),
+                            stride=1,
+                            padding=1,
+                            bias=False,
+                        ),
+                    ),
+                    (
+                        "1_block",
+                        Block(
+                            self.filters[0],
+                            self.filters[1],
+                            1,
+                            self.block_depth,
+                            dropout,
+                        ),
+                    ),
+                    (
+                        "2_block",
+                        Block(
+                            self.filters[1],
+                            self.filters[2],
+                            2,
+                            self.block_depth,
+                            dropout,
+                        ),
+                    ),
+                    (
+                        "3_block",
+                        Block(
+                            self.filters[2],
+                            self.filters[3],
+                            2,
+                            self.block_depth,
+                            dropout,
+                        ),
+                    ),
+                    ("4_normalization", nn.BatchNorm2d(self.filters[3])),
+                    ("5_activation", nn.ReLU(inplace=True)),
+                    ("6_pooling", nn.AvgPool2d(kernel_size=kernel_size)),
+                    ("7_flattening", nn.Flatten()),
                 ]
             )
         )

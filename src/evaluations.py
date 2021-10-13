@@ -11,7 +11,7 @@ from ptflops import get_model_complexity_info
 from torch.utils.data import DataLoader, Dataset
 from tqdm.auto import tqdm
 
-from model.wide_res_net import WideResNet
+from model.wide_res_net import WideResNet, WideResNet_Embeds
 from utility.cifar_utils import (
     cifar100_stats,
     coarse_classes,
@@ -291,14 +291,24 @@ def main(_args):
 
         # TODO: [OPTIONAL] Set the dataloader's batch size based on the crop size to increase evaluation speed
 
-        model = WideResNet(
-            kernel_size=kernel_size,
-            width_factor=width_factor,
-            depth=depth,
-            dropout=0.0,
-            in_channels=3,
-            labels=n_labels,
-        )
+        if _args.use_original_WRN:
+            model = WideResNet(
+                kernel_size=kernel_size,
+                width_factor=width_factor,
+                depth=depth,
+                dropout=0.0,
+                in_channels=3,
+                labels=n_labels,
+            )
+        else:
+            WideResNet_Embeds(
+                kernel_size=kernel_size,
+                width_factor=width_factor,
+                depth=depth,
+                dropout=0.0,
+                in_channels=3,
+                labels=n_labels,
+            )
 
         model_state_dict = torch.load(model_path, map_location=f"cuda:{_args.gpu}")[
             "model_state_dict"
@@ -356,6 +366,15 @@ if __name__ == "__main__":
     parser.add_argument(
         "--limit", default=None, type=int, help="Limit amount for models to evaluate",
     )
+    parser.add_argument(
+        "--original_net", default=True, type=bool, help="Limit amount for models to evaluate",
+    )
+    parser.add_argument("--original_net", dest="use_original_WRN", action="store_true")
+    parser.add_argument(
+        "--embed_net", dest="use_original_WRN", action="store_false",
+    )
+    parser.set_defaults(use_original_WRN=True)
+
     args = parser.parse_args()
     print("Getting model results")
     main(args)
