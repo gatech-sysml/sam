@@ -136,7 +136,7 @@ class WideResNet(nn.Module):
                         nn.Conv2d(
                             in_channels,
                             self.filters[0],
-                            (3, 3),
+                            (kernel_size, kernel_size),
                             stride=1,
                             padding=1,
                             bias=False,
@@ -174,7 +174,7 @@ class WideResNet(nn.Module):
                     ),
                     ("4_normalization", nn.BatchNorm2d(self.filters[3])),
                     ("5_activation", nn.ReLU(inplace=True)),
-                    ("6_pooling", nn.AvgPool2d(kernel_size=kernel_size)),
+                    ("6_pooling", nn.AvgPool2d(kernel_size=8)),
                     ("7_flattening", nn.Flatten()),
                 ]
             )
