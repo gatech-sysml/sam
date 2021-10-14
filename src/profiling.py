@@ -48,8 +48,8 @@ def main(_args):
         writer.writerow(profile_fields)
 
     model_parameter_space = []
-    for granularity in ["coarse"]:
-        for crop_size, kernel_size in [(32, 8)]:
+    for granularity in ["coarse", "fine"]:
+        for crop_size, kernel_size in [(32, 8), (24, 6), (16, 4), (8, 2)]:
             for width_factor in [2, 4, 6, 8, 10]:
                 for depth in [8, 12, 16, 20, 22, 24, 28]:
                     model_parameter_space.append(
@@ -120,7 +120,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--filename",
-        default="model_profiles_crop32",
+        default="model_profiles_all",
         type=str,
         help="name of the csv file you want to generate",
     )
