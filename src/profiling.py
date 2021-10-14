@@ -28,7 +28,6 @@ def main(_args):
     evaluations_path = project_path / "evaluations"
     evaluations_path.mkdir(parents=True, exist_ok=True)
     profiles_path = evaluations_path / f"{_args.filename}.csv"
-    profiles_path.mkdir(exist_ok=True, parents=True)
 
     profile_fields = [
         "granularity",
