@@ -58,15 +58,6 @@ def set_crop_size(dataloader, crop_size: int):
             )
 
 
-def get_granularity(name: str) -> str:
-    if "coarse" in name:
-        return "coarse"
-    elif "fine" in name:
-        return "fine"
-    else:
-        raise ValueError("granularity not found")
-
-
 def get_parameter(name: str, param: str) -> int:
     extension = "." + name.split(".")[-1]
     if param not in ["class", "crop", "kernel", "width", "depth"]:
@@ -77,13 +68,11 @@ def get_parameter(name: str, param: str) -> int:
 
 
 def get_parameters(model_filename):
-    granularity = get_granularity(model_filename)
-    class_id = int(get_parameter(model_filename, "class"))
     crop_size = int(get_parameter(model_filename, "crop"))
-    kernel_size = int(get_parameter(model_filename, "kernel"))
+    kernel_size = crop_size/4
     width_factor = int(get_parameter(model_filename, "width"))
     depth = int(get_parameter(model_filename, "depth"))
-    return granularity, class_id, crop_size, kernel_size, width_factor, depth
+    return crop_size, kernel_size, width_factor, depth
 
 
 def parse_model_path(model_path):
