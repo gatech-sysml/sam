@@ -7,7 +7,7 @@ import numpy as np
 import torch
 
 from model.smooth_cross_entropy import smooth_crossentropy
-from model.wide_res_net import WideResNet_Embeds
+from model.wide_res_net import WideResNet
 from sam import SAM
 from utility.bypass_bn import disable_running_stats, enable_running_stats
 from utility.initialize import initialize
@@ -99,7 +99,7 @@ if __name__ == "__main__":
         "--kernel_size",
         default=6,
         type=int,
-        help="Kernel size for max pooling layer in WideResNet_Embeds",
+        help="Kernel size for max pooling layer in WideResNet",
     )
     parser.add_argument(
         "--width_factor",
@@ -200,7 +200,7 @@ if __name__ == "__main__":
 
     log = Log(log_each=10)
 
-    model = WideResNet_Embeds(
+    model = WideResNet(
         depth=args.depth,
         width_factor=args.width_factor,
         dropout=args.dropout,
