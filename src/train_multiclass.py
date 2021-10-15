@@ -72,6 +72,18 @@ def get_dataset(train:bool):
 
     return dataset
 
+
+def set_crop_size(dataloader, crop_size: int):
+    """
+    takes in a dataloader containing dataset CIFAR100Indexed and sets size of the RandomCrop
+    """
+    for i, t in enumerate(dataloader.dataset.cifar100.transforms.transform.transforms):
+        if type(t) == torchvision.transforms.transforms.RandomCrop:
+            dataloader.dataset.cifar100.transforms.transform.transforms[i].size = (
+                crop_size,
+                crop_size,
+            )
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -173,6 +185,10 @@ if __name__ == "__main__":
         shuffle=False,
         num_workers=args.threads,
     )
+    set_crop_size(train_set, args.crop_size)
+    print(train_set.dataset.cifar100.transforms.transform.transforms)
+    set_crop_size(test_set, args.crop_size)
+    print(test_set.dataset.cifar100.transforms.transform.transforms)
 
     fp = (
             get_project_path()
