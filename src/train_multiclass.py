@@ -204,7 +204,7 @@ if __name__ == "__main__":
         depth=args.depth,
         width_factor=args.width_factor,
         dropout=args.dropout,
-        kernel_size=8,
+        kernel_size=6,
         in_channels=3,
         labels=100,
     ).to(device)
