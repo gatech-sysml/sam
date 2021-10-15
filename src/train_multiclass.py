@@ -210,8 +210,9 @@ if __name__ == "__main__":
         model.train()
         log.train(len_dataset=len(train_set))
 
-        for batch in train_set:
-            inputs, targets = (b.to(device) for b in batch)
+        for inputs, targets, idx in train_set:
+            inputs = inputs.to(device)
+            targets = targets.to(device)
 
             # first forward-backward step
             enable_running_stats(model)
@@ -237,8 +238,9 @@ if __name__ == "__main__":
         epoch_correct = 0.0
         epoch_count = 0.0
         with torch.no_grad():
-            for batch in test_set:
-                inputs, targets = (b.to(device) for b in batch)
+            for inputs, targets, idx in test_set:
+                inputs = inputs.to(device)
+                targets = targets.to(device)
 
                 predictions, _ = model(inputs)  # XXXXX add embedding outputs
                 loss = smooth_crossentropy(predictions, targets)
