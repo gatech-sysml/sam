@@ -11,7 +11,7 @@ from ptflops import get_model_complexity_info
 from torch.utils.data import DataLoader, Dataset
 from tqdm.auto import tqdm
 
-from model.wide_res_net import WideResNet
+from model.wide_res_net import WideResNet_Embeds
 from utility.cifar_utils import cifar100_stats
 
 torch.multiprocessing.set_sharing_strategy("file_system")
@@ -68,7 +68,7 @@ def get_parameter(name: str, param: str) -> int:
 
 def get_parameters(model_filename):
     crop_size = int(get_parameter(model_filename, "crop"))
-    kernel_size = crop_size/4
+    kernel_size = int(crop_size / 4)
     width_factor = int(get_parameter(model_filename, "width"))
     depth = int(get_parameter(model_filename, "depth"))
     return crop_size, kernel_size, width_factor, depth
@@ -212,12 +212,7 @@ def main(_args):
 
     print(model_filename)
 
-    (
-        crop_size,
-        kernel_size,
-        width_factor,
-        depth,
-    ) = get_parameters(model_filename)
+    (crop_size, kernel_size, width_factor, depth,) = get_parameters(model_filename)
 
     model_info = [
         crop_size,
@@ -233,7 +228,7 @@ def main(_args):
     set_crop_size(test_dataloader, crop_size)
     set_crop_size(validation_dataloader, crop_size)
 
-    model = WideResNet(
+    model = WideResNet_Embeds(
         kernel_size=kernel_size,
         width_factor=width_factor,
         depth=depth,
