@@ -7,7 +7,7 @@ dp=28
 wd=10
 
 mkdir -p "logs/model/last_minute/"
-python -u src/train_alternative.py --gpu $gpu \
+python -u src/train_multiclass.py --gpu $gpu \
   --coarse_classes \
   --crop_size $cr --kernel_size $kr \
   --depth $dp --width_factor $wd |
