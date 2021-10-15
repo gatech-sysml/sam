@@ -12,19 +12,10 @@ from torch.utils.data import DataLoader, Dataset
 from tqdm.auto import tqdm
 
 from model.wide_res_net import WideResNet
-from utility.cifar_utils import (
-    cifar100_stats,
-    coarse_classes,
-    coarse_idxs,
-    fine_to_coarse_idxs,
-)
-import pickle
+from utility.cifar_utils import cifar100_stats
 
 torch.multiprocessing.set_sharing_strategy("file_system")
 from collections import namedtuple
-from itertools import compress
-
-from utility.cifar_utils import coarse_class_to_idx
 
 project_path = Path(__file__).parent.parent
 
@@ -43,7 +34,6 @@ embeddings_path.mkdir(exist_ok=True, parents=True)
 Result = namedtuple("Result", ["idx", "prediction", "target", "correct", "outputs"])
 profile_fields = [
     "granularity",
-    "superclass",
     "crop_size",
     "kernel_size",
     "width_factor",
@@ -54,6 +44,7 @@ profile_fields = [
     "params",
 ]
 Profile = namedtuple("Profile", profile_fields,)
+
 
 def set_crop_size(dataloader, crop_size: int):
     """
@@ -67,7 +58,6 @@ def set_crop_size(dataloader, crop_size: int):
             )
 
 
-
 def get_granularity(name: str) -> str:
     if "coarse" in name:
         return "coarse"
@@ -75,10 +65,6 @@ def get_granularity(name: str) -> str:
         return "fine"
     else:
         raise ValueError("granularity not found")
-
-
-def get_superclass(name: str) -> int:
-    pass
 
 
 def get_parameter(name: str, param: str) -> int:
@@ -103,22 +89,7 @@ def get_parameters(model_filename):
 def parse_model_path(model_path):
     model_name = str(model_path.split("/")[-1])
     model_name = model_name.replace(".pt", "").replace("model_", "")
-    model_name = superclass_to_idx(model_name)
     return model_name
-
-
-def superclass_to_idx(filename: str):
-    """
-    input a model filename
-    output is model filename with the superclass label name replaced with index
-    coarse granularity models have their generic term removed
-    """
-    if "_all_" in filename:  # if coarse just removes the superclass placeholder
-        return filename.replace("_all_", "_class-1_")
-    keys = coarse_class_to_idx.keys()
-    superclass = next(compress(keys, [k in filename for k in keys]))
-    superclass_idx = coarse_class_to_idx[superclass]
-    return filename.replace(superclass, "class" + str(superclass_idx))
 
 
 class CIFAR100Indexed(Dataset):
@@ -331,9 +302,7 @@ def main(_args):
     validation_df = pd.DataFrame(validation_results)
     validation_df = split_outputs_column(validation_df, n_labels)
     validation_df.to_csv(
-        path_or_buf=str(
-            predictions_path / f"validation_eval__{model_filename}.csv"
-        ),
+        path_or_buf=str(predictions_path / f"validation_eval__{model_filename}.csv"),
         index=False,
     )
 
