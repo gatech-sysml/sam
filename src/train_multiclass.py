@@ -10,20 +10,67 @@ from model.smooth_cross_entropy import smooth_crossentropy
 from model.wide_res_net import WideResNet_Embeds
 from sam import SAM
 from utility.bypass_bn import disable_running_stats, enable_running_stats
-from utility.cifar_utils import load_dataset
 from utility.initialize import initialize
 from utility.log import Log
 from utility.step_lr import StepLR
+from utility.cutout import Cutout
+from torchvision import transforms
+import torchvision
+from torch.utils.data import DataLoader, Dataset
+
+class CIFAR100Indexed(Dataset):
+    def __init__(self, root, download, train, transform):
+        self.cifar100 = torchvision.datasets.CIFAR100(
+            root=root, download=download, train=train, transform=transform
+        )
+
+    def __getitem__(self, index):
+        data, target = self.cifar100[index]
+        return data, target, index
+
+    def __len__(self):
+        return len(self.cifar100)
 
 
-def get_project_root() -> Path:
+def get_project_path() -> Path:
     return Path(__file__).parent.parent
 
+dataset_path = get_project_path() / 'data'
 
-import sys
+def cifar100_stats(root=str(get_project_path() / "datasets")):
+    _data_set = torchvision.datasets.CIFAR100(
+        root=root, train=True, download=True, transform=transforms.ToTensor(),
+    )
 
-sys.path.append(get_project_root)
+    _data_tensors = torch.cat([d[0] for d in DataLoader(_data_set)])
+    mean, std = _data_tensors.mean(dim=[0, 2, 3]), _data_tensors.std(dim=[0, 2, 3])
+    return mean, std
 
+
+def get_dataset(train:bool):
+    mean, std = cifar100_stats(root=str(dataset_path))
+    if train:
+        transform = transforms.Compose(
+            [
+                transforms.RandomCrop(size=32),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+                transforms.Normalize(mean, std),
+                Cutout()
+            ]
+        )
+    else:
+        transform = transforms.Compose(
+            [
+                transforms.ToTensor(),
+                transforms.Normalize(mean, std),
+            ]
+        )
+    dataset = CIFAR100Indexed(
+        root=str(dataset_path), train=train, download=False, transform=transform,
+    )
+
+    return dataset
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -111,8 +158,8 @@ if __name__ == "__main__":
             f"cuda:{args.gpu}" if torch.cuda.is_available() else "cpu"
         )
 
-    dataset_train = load_dataset("train", args)
-    dataset_test = load_dataset("test", args)
+    dataset_train = get_dataset(train=True)
+    dataset_test = get_dataset(train=False)
 
     train_set = torch.utils.data.DataLoader(
         dataset_train,
@@ -128,10 +175,10 @@ if __name__ == "__main__":
     )
 
     fp = (
-        get_project_root()
-        / "models"
-        / "last_minute"
-        / f"wrn100class_crop{args.crop_size}_width{args.width_factor}_depth{args.depth}.pt"
+            get_project_path()
+            / "models"
+            / "last_minute"
+            / f"wrn100class_crop{args.crop_size}_width{args.width_factor}_depth{args.depth}.pt"
     )
     fp.parent.mkdir(parents=True, exist_ok=True)
 
