@@ -1,6 +1,6 @@
 #!/bin/sh
 
-gpu=0
+gpu=3
 cr=24
 kr=6
 dp=28
