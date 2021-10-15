@@ -33,7 +33,6 @@ embeddings_path.mkdir(exist_ok=True, parents=True)
 
 Result = namedtuple("Result", ["idx", "prediction", "target", "correct", "outputs"])
 profile_fields = [
-    "granularity",
     "crop_size",
     "kernel_size",
     "width_factor",
@@ -60,7 +59,7 @@ def set_crop_size(dataloader, crop_size: int):
 
 def get_parameter(name: str, param: str) -> int:
     extension = "." + name.split(".")[-1]
-    if param not in ["class", "crop", "kernel", "width", "depth"]:
+    if param not in ["crop", "kernel", "width", "depth"]:
         raise ValueError("invalid parameter input")
     for element in name.split("_"):
         if param in element:
@@ -214,8 +213,6 @@ def main(_args):
     print(model_filename)
 
     (
-        granularity,
-        class_id,
         crop_size,
         kernel_size,
         width_factor,
@@ -223,8 +220,6 @@ def main(_args):
     ) = get_parameters(model_filename)
 
     model_info = [
-        granularity,
-        class_id,
         crop_size,
         kernel_size,
         width_factor,
