@@ -7,37 +7,107 @@ import numpy as np
 import torch
 
 from model.smooth_cross_entropy import smooth_crossentropy
-from model.wide_res_net import WideResNet_Embeds
+from model.wide_res_net import WideResNet
 from sam import SAM
 from utility.bypass_bn import disable_running_stats, enable_running_stats
-from utility.cifar_utils import load_dataset
 from utility.initialize import initialize
 from utility.log import Log
 from utility.step_lr import StepLR
+from utility.cutout import Cutout
+from torchvision import transforms
+import torchvision
+from torch.utils.data import DataLoader, Dataset
+
+class CIFAR100Indexed(Dataset):
+    def __init__(self, root, download, train, transform):
+        self.cifar100 = torchvision.datasets.CIFAR100(
+            root=root, download=download, train=train, transform=transform
+        )
+
+    def __getitem__(self, index):
+        data, target = self.cifar100[index]
+        return data, target, index
+
+    def __len__(self):
+        return len(self.cifar100)
 
 
-def get_project_root() -> Path:
+def get_project_path() -> Path:
     return Path(__file__).parent.parent
 
+dataset_path = get_project_path() / 'data'
 
-import sys
+def cifar100_stats(root=str(get_project_path() / "datasets")):
+    _data_set = torchvision.datasets.CIFAR100(
+        root=root, train=True, download=True, transform=transforms.ToTensor(),
+    )
 
-sys.path.append(get_project_root)
+    _data_tensors = torch.cat([d[0] for d in DataLoader(_data_set)])
+    mean, std = _data_tensors.mean(dim=[0, 2, 3]), _data_tensors.std(dim=[0, 2, 3])
+    return mean, std
 
+
+def get_dataset(train:bool):
+    mean, std = cifar100_stats(root=str(dataset_path))
+    if train:
+        transform = transforms.Compose(
+            [
+                transforms.RandomCrop(size=32),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+                transforms.Normalize(mean, std),
+                Cutout()
+            ]
+        )
+    else:
+        transform = transforms.Compose(
+            [
+                transforms.ToTensor(),
+                transforms.Normalize(mean, std),
+            ]
+        )
+    dataset = CIFAR100Indexed(
+        root=str(dataset_path), train=train, download=False, transform=transform,
+    )
+
+    return dataset
+
+
+def set_crop_size(dataloader, crop_size: int):
+    """
+    takes in a dataloader containing dataset CIFAR100Indexed and sets size of the RandomCrop
+    """
+    for i, t in enumerate(dataloader.dataset.cifar100.transforms.transform.transforms):
+        if type(t) == torchvision.transforms.transforms.RandomCrop:
+            dataloader.dataset.cifar100.transforms.transform.transforms[i].size = (
+                crop_size,
+                crop_size,
+            )
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--gpu", default=-1, type=int, help="Index value for the GPU to use",
     )
-    parser.add_argument("--fine_classes", dest="use_fine_classes", action="store_true")
     parser.add_argument(
-        "--coarse_classes", dest="use_fine_classes", action="store_false",
+        "--crop_size",
+        default=24,
+        type=int,
+        help="Crop size used in data transformations.",
     )
-    parser.set_defaults(use_fine_classes=True)
     parser.add_argument(
-        "--superclass", default="all", type=str, help="Superclass we want to use",
+        "--kernel_size",
+        default=6,
+        type=int,
+        help="Kernel size for max pooling layer in WideResNet",
     )
+    parser.add_argument(
+        "--width_factor",
+        default=8,
+        type=int,
+        help="How many times wider compared to normal ResNet.",
+    )
+    parser.add_argument("--depth", default=16, type=int, help="Number of layers.")
     parser.add_argument(
         "--adaptive",
         default=True,
@@ -45,24 +115,11 @@ if __name__ == "__main__":
         help="True if you want to use the Adaptive SAM.",
     )
     parser.add_argument(
-        "--crop_size",
-        default=32,
-        type=int,
-        help="Crop size used in data transformations.",
-    )
-    parser.add_argument(
-        "--kernel_size",
-        default=3,
-        type=int,
-        help="Kernel size for max pooling layer in WideResNet_Embeds",
-    )
-    parser.add_argument(
         "--batch_size",
         default=128,
         type=int,
         help="Batch size used in the training and validation loop.",
     )
-    parser.add_argument("--depth", default=16, type=int, help="Number of layers.")
     parser.add_argument("--dropout", default=0.0, type=float, help="Dropout rate.")
     parser.add_argument(
         "--epochs", default=200, type=int, help="Total number of epochs."
@@ -87,25 +144,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--weight_decay", default=0.0005, type=float, help="L2 weight decay."
     )
-    parser.add_argument(
-        "--width_factor",
-        default=8,
-        type=int,
-        help="How many times wider compared to normal ResNet.",
-    )
     args = parser.parse_args()
 
     print(args)
-
-    if args.use_fine_classes:
-        args.granularity = "fine"
-        if not args.superclass:
-            ValueError("Must provide superclass when training with fine labels")
-        superclass = str(args.superclass)
-    else:
-        args.granularity = "coarse"
-        if not args.superclass:
-            superclass = "all"
 
     initialize(args, seed=42)
 
@@ -129,8 +170,8 @@ if __name__ == "__main__":
             f"cuda:{args.gpu}" if torch.cuda.is_available() else "cpu"
         )
 
-    dataset_train = load_dataset("train", args)
-    dataset_test = load_dataset("test", args)
+    dataset_train = get_dataset(train=True)
+    dataset_test = get_dataset(train=False)
 
     train_set = torch.utils.data.DataLoader(
         dataset_train,
@@ -144,40 +185,29 @@ if __name__ == "__main__":
         shuffle=False,
         num_workers=args.threads,
     )
+    set_crop_size(train_set, args.crop_size)
+    print(train_set.dataset.cifar100.transforms.transform.transforms)
+    set_crop_size(test_set, args.crop_size)
+    print(test_set.dataset.cifar100.transforms.transform.transforms)
 
     fp = (
-        get_project_root()
-        / "models"
-        / args.granularity
-        / args.superclass
-        / f"crop{str(args.crop_size)}"
-        / f"kernel{str(args.kernel_size)}"
-        / f"width{str(args.width_factor)}"
-        / f"depth{str(args.depth)}"
-        / f"model_{args.granularity}_{args.superclass}_crop{args.crop_size}_kernel{args.kernel_size}_width{args.width_factor}_depth{args.depth}.pt"
+            get_project_path()
+            / "models"
+            / "last_minute"
+            / f"wrn100class_crop{args.crop_size}_width{args.width_factor}_depth{args.depth}.pt"
     )
     fp.parent.mkdir(parents=True, exist_ok=True)
 
     log = Log(log_each=10)
 
-    if args.use_fine_classes:
-        model = WideResNet_Embeds(
-            depth=args.depth,
-            width_factor=args.width_factor,
-            dropout=args.dropout,
-            kernel_size=args.kernel_size,
-            in_channels=3,
-            labels=100,
-        ).to(device)
-    else:
-        model = WideResNet_Embeds(
-            depth=args.depth,
-            width_factor=args.width_factor,
-            dropout=args.dropout,
-            kernel_size=args.kernel_size,
-            in_channels=3,
-            labels=20,
-        ).to(device)
+    model = WideResNet(
+        depth=args.depth,
+        width_factor=args.width_factor,
+        dropout=args.dropout,
+        kernel_size=6,
+        in_channels=3,
+        labels=100,
+    ).to(device)
 
     base_optimizer = torch.optim.SGD
     optimizer = SAM(
@@ -196,8 +226,9 @@ if __name__ == "__main__":
         model.train()
         log.train(len_dataset=len(train_set))
 
-        for batch in train_set:
-            inputs, targets = (b.to(device) for b in batch)
+        for inputs, targets, idx in train_set:
+            inputs = inputs.to(device)
+            targets = targets.to(device)
 
             # first forward-backward step
             enable_running_stats(model)
@@ -223,8 +254,9 @@ if __name__ == "__main__":
         epoch_correct = 0.0
         epoch_count = 0.0
         with torch.no_grad():
-            for batch in test_set:
-                inputs, targets = (b.to(device) for b in batch)
+            for inputs, targets, idx in test_set:
+                inputs = inputs.to(device)
+                targets = targets.to(device)
 
                 predictions, _ = model(inputs)  # XXXXX add embedding outputs
                 loss = smooth_crossentropy(predictions, targets)
